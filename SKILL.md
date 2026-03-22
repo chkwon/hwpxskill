@@ -543,6 +543,35 @@ python3 "$SKILL_DIR/scripts/page_guard.py" \
 
 ---
 
+## 워크플로우 6: 인용 스타일 변환 (Author-Year → Numeric)
+
+Author-year 스타일 `(Bengio et al., 2021)` 를 numeric 스타일 `[9]` 로 변환.
+
+```bash
+source "$VENV"
+
+# 기본 사용법
+python3 "$SKILL_DIR/scripts/cite_numeric.py" input.hwpx --output output.hwpx
+
+# 미리보기 (변경 없이 확인만)
+python3 "$SKILL_DIR/scripts/cite_numeric.py" input.hwpx --output output.hwpx --dry-run
+
+# 커스텀 참고문헌 제목
+python3 "$SKILL_DIR/scripts/cite_numeric.py" input.hwpx --output output.hwpx \
+  --ref-heading "References" --next-heading "6."
+```
+
+### 주요 기능
+- **자동 감지**: 본문에서 `(Author, YYYY)` 패턴을 자동 스캔하여 번호 할당
+- **첫 등장 순서**: 번호는 본문에서 처음 등장한 순서대로 할당
+- **범위 압축**: `[9–12]` (3개 이상 연속), `[7, 8]` (2개 연속), `[2, 3, 6–9]` (하이브리드)
+- **참고문헌 재정렬**: References 섹션을 번호 순으로 재정렬, `[N]` 접두사 추가
+- **재실행 가능**: 이미 numeric 스타일인 문서에 새 author-year 인용을 추가한 후 재실행하면 전체 재번호
+- **`&amp;` 처리**: XML의 `&amp;` 및 `&amp;amp;` 이중 인코딩 자동 처리
+- **미인용 참고문헌**: 본문에서 인용되지 않은 참고문헌은 경고 후 제거
+
+---
+
 ## 스크립트 요약
 
 | 스크립트 | 용도 |
@@ -554,6 +583,7 @@ python3 "$SKILL_DIR/scripts/page_guard.py" \
 | `scripts/validate.py` | HWPX 파일 구조 검증 |
 | `scripts/page_guard.py` | 레퍼런스 대비 페이지 드리프트 위험 검사 (필수 게이트) |
 | `scripts/text_extract.py` | HWPX 텍스트 추출 |
+| `scripts/cite_numeric.py` | Author-year → Numeric 인용 스타일 변환 |
 
 ## 단위 변환
 
@@ -567,6 +597,62 @@ python3 "$SKILL_DIR/scripts/page_guard.py" \
 | A4 높이 | 84186 | 297mm |
 | 좌우여백 | 8504 | 30mm |
 | 본문폭 | 42520 | 150mm (A4-좌우여백) |
+
+## Known Pitfalls (실전에서 발견된 오류 사례)
+
+### Pitfall 1: linesegarray textpos 불일치로 파일 열기 실패 (치명적)
+
+**증상**: 수정한 HWPX가 `validate.py`를 통과하지만 한글 오피스에서 열리지 않음 (무한 로딩 또는 오류).
+
+**원인**: `<hp:linesegarray>` 내부의 `<hp:lineseg textpos="N"/>` 값은 해당 문단 텍스트의 문자 오프셋을 가리킨다. 텍스트 길이를 줄이면 textpos가 존재하지 않는 위치를 참조하게 되어 한글 오피스 파서가 크래시한다.
+
+**재현**: 표(table) 셀 안의 긴 문장을 짧게 줄이면 발생. 짧은 괄호(citation) 추가 시에는 보통 발생하지 않음.
+
+**해결**: 텍스트 길이가 줄어드는 편집 시, 해당 `</hp:run>` 다음의 `<hp:linesegarray>...</hp:linesegarray>` 블록 전체를 삭제. 한글 오피스가 열 때 자동 재생성함.
+
+```python
+# 잘못된 방법 (크래시 유발):
+section1 = section1.replace(old_text, new_shorter_text)
+
+# 올바른 방법:
+old_block = old_text + '</hp:t></hp:run><hp:linesegarray>'
+idx = section1.index(old_block)
+end = section1.index('</hp:linesegarray>', idx) + len('</hp:linesegarray>')
+section1 = section1[:idx] + new_shorter_text + '</hp:t></hp:run>' + section1[end:]
+```
+
+### Pitfall 2: lxml 재직렬화로 파일 열기 실패
+
+**증상**: lxml으로 파싱 후 `tree.write()`로 저장하면 한글 오피스에서 열리지 않음.
+
+**원인**: lxml이 (1) `standalone="yes"` 제거, (2) 따옴표 `"` → `'` 변경, (3) 줄바꿈 삽입, (4) 네임스페이스 선언 재배치 등을 수행하여 한글 파서가 거부.
+
+**해결**: 기존 HWPX 편집 시 원본 XML을 `decode('utf-8')` → `str.replace()` → `encode('utf-8')` 방식으로 수정. lxml은 분석/검증 용도로만 사용.
+
+### Pitfall 3: pack.py 재패키징으로 파일 열기 실패
+
+**증상**: `unpack.py` → 편집 → `pack.py`로 재패키징한 파일이 열리지 않음.
+
+**원인**: `pack.py`가 (1) 파일 순서를 알파벳순으로 변경, (2) BinData PNG를 ZIP_DEFLATED로 압축 (원본은 ZIP_STORED), (3) `external_attr` 변경.
+
+**해결**: 원본 ZIP의 `ZipInfo`를 보존하면서 변경된 XML만 교체:
+
+```python
+with zipfile.ZipFile(src, 'r') as zin:
+    with zipfile.ZipFile(dst, 'w') as zout:
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            if item.filename == 'Contents/section1.xml':
+                data = modified_bytes
+            zout.writestr(item, data)  # ZipInfo(item) 보존
+```
+
+### 편집 전 백업 워크플로우
+
+HWPX 파일을 수정하기 전에 반드시 백업:
+```bash
+cp original.hwpx "original_backup_$(date +%Y%m%d_%H%M%S).hwpx"
+```
 
 ## Critical Rules
 
@@ -587,3 +673,20 @@ python3 "$SKILL_DIR/scripts/page_guard.py" \
 15. **무단 페이지 증가 금지**: 사용자 명시 요청/승인 없이 쪽수 증가를 유발하는 구조 변경 금지
 16. **구조 변경 제한**: 사용자 요청이 없는 한 문단/표의 추가·삭제·분할·병합 금지 (치환 중심 편집)
 17. **page_guard 필수 통과**: `validate.py`와 별개로 `page_guard.py`를 반드시 통과해야 완료 처리
+18. **linesegarray 무효화 주의 (치명적)**: `<hp:linesegarray>` 내부의 `<hp:lineseg textpos="N" .../>` 은 해당 문단 텍스트의 문자 위치(character offset)를 참조한다. **텍스트 길이가 변경되면 textpos 값이 무효화되어 한글 오피스가 파일을 열지 못한다.** 텍스트를 단축하거나 크게 변경할 때는 반드시 해당 문단의 `<hp:linesegarray>...</hp:linesegarray>` 블록 전체를 삭제할 것 — 한글 오피스가 열 때 자동으로 재생성한다. 텍스트 끝에 짧은 괄호 참조(citation)를 추가하는 정도는 textpos 범위 내에서 허용되지만, 텍스트를 대폭 단축/삭제하면 반드시 linesegarray를 함께 제거해야 한다. 특히 **표(table) 셀 내부 문단**에서 텍스트를 줄일 때 이 문제가 발생하기 쉽다.
+19. **lxml 재직렬화 금지**: lxml의 `tree.write()` 또는 `etree.tostring()`으로 XML을 재직렬화하면 (1) `standalone="yes"` 누락, (2) 인용부호 변경(`"` → `'`), (3) 줄바꿈/공백 삽입, (4) 네임스페이스 재배치 등이 발생하여 한글 오피스가 파일을 열지 못할 수 있다. **기존 HWPX를 편집할 때는 원본 XML 바이트를 문자열로 읽어서 `str.replace()`로 치환하고 다시 바이트로 인코딩하는 방식을 사용할 것.** lxml은 분석/파싱 용도로만 사용한다.
+20. **ZIP 구조 보존 필수**: `pack.py`로 재패키징하면 파일 순서, 압축 방식(BinData PNG는 ZIP_STORED), external_attr 등이 변경되어 한글 오피스가 열지 못할 수 있다. **기존 HWPX를 편집할 때는 원본 ZIP의 ZipInfo를 그대로 유지하면서 변경된 XML만 `writestr(item, new_data)`로 교체하는 방식을 사용할 것:**
+    ```python
+    with zipfile.ZipFile(src, 'r') as zin:
+        with zipfile.ZipFile(dst, 'w') as zout:
+            for item in zin.infolist():
+                data = zin.read(item.filename)
+                if item.filename == 'Contents/section1.xml':
+                    data = modified_data  # 변경된 XML 바이트
+                zout.writestr(item, data)  # ZipInfo 보존
+    ```
+21. **편집 전 백업 필수**: HWPX 파일을 수정하기 전에 반드시 원본의 백업 복사본을 생성할 것. 백업 파일명 규칙: `{원본명}_backup_{YYYYMMDD_HHMMSS}.hwpx`. 이를 통해 수정 실패 시 즉시 롤백할 수 있다.
+    ```bash
+    cp original.hwpx "original_backup_$(date +%Y%m%d_%H%M%S).hwpx"
+    ```
+22. **글꼴 크기·자간 조작 금지**: 쪽수를 맞추거나 줄 수를 줄이기 위해 글꼴 크기(height), 자간(spacing), 장평(ratio) 등을 임의로 변경하지 말 것. 텍스트가 길어지면 내용을 압축·요약하는 방식으로 대응하고, charPr의 height/spacing 속성이나 paraPr의 lineSpacing 값을 원본과 다르게 변경하는 것은 금지한다. 원본 레퍼런스 문서에 정의된 서식을 그대로 유지할 것.

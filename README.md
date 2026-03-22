@@ -2,20 +2,24 @@
 
 한컴오피스 HWPX 문서를 AI 코딩 에이전트에서 다룰 수 있게 해주는 스킬입니다.
 
-python-hwpx API를 쓰면 버그가 많아서, XML을 직접 건드리는 방식을 택했습니다. 덕분에 기존 문서의 서식이나 구조를 거의 그대로 유지하면서 내용만 갈아끼울 수 있습니다.
+python-hwpx API를 쓰면 버그가 많아서, OWPML 표준 XML을 직접 건드리는 방식을 택했습니다. 덕분에 기존 문서의 서식이나 구조를 거의 그대로 유지하면서 내용만 갈아끼울 수 있습니다.
 
-## 뭘 할 수 있나
+## 주요 기능
 
-원본 HWPX 파일을 넣으면 스타일, 표 구조, 셀 병합, 여백까지 분석해서 구조를 보존한 채 내용만 바꿔줍니다. 원본이 없으면 공문, 보고서 같은 내장 템플릿으로 새 문서를 만들 수도 있고요. 다 만들고 나면 `page_guard.py`가 원본 대비 페이지 수가 달라졌는지 자동으로 잡아냅니다.
-
-OWPML 표준 XML을 직접 다루기 때문에 charPr, paraPr 단위로 서식을 제어할 수 있습니다. Claude Code, Cursor, Codex CLI에서 모두 동작합니다.
+- **레퍼런스 복원**: 원본 HWPX 파일의 스타일, 표 구조, 셀 병합, 여백을 분석해서 구조를 보존한 채 내용만 교체
+- **템플릿 기반 생성**: 공문, 보고서, 회의록, 제안서 등 내장 템플릿으로 새 문서 생성
+- **페이지 가드**: 원본 대비 페이지 수 변동을 자동 감지
+- **인용 변환**: 저자-연도 형식의 학술 인용을 숫자 형식 [1-3]으로 자동 변환
+- **텍스트 추출**: 일반 텍스트 또는 마크다운 형식으로 문서 내용 추출
+- **XML 직접 제어**: charPr, paraPr 단위의 정밀한 서식 제어
+- **크로스 플랫폼**: Claude Code, Cursor, Codex CLI에서 모두 동작
 
 ## 설치
 
-Agent Skills 표준을 따르고 있어서, 어떤 도구든 스킬 디렉토리에 넣기만 하면 됩니다.
+Agent Skills 표준을 따르고 있어서, 스킬 디렉토리에 넣기만 하면 됩니다.
 
 ```bash
-git clone https://github.com/Canine89/hwpxskill.git
+git clone https://github.com/chkwon/hwpxskill.git
 ```
 
 ### Claude Code
@@ -119,6 +123,14 @@ python3 scripts/validate.py result.hwpx
 python3 scripts/page_guard.py --reference reference.hwpx --output result.hwpx
 ```
 
+### 6. 인용 형식 변환
+
+저자-연도 형식의 학술 인용을 숫자 형식으로 자동 변환합니다. 범위 압축([2-5])과 혼합 형식([2, 3, 6-9])을 지원합니다.
+
+```bash
+python3 scripts/cite_numeric.py input.hwpx --output output.hwpx --ref-heading "5. References"
+```
+
 ## 템플릿
 
 | 템플릿 | 용도 | 특징 |
@@ -140,13 +152,19 @@ python3 scripts/page_guard.py --reference reference.hwpx --output result.hwpx
 | 스크립트 | 하는 일 |
 |----------|---------|
 | `build_hwpx.py` | 템플릿 + XML 조합해서 HWPX 생성 |
-| `analyze_template.py` | 레퍼런스 HWPX 분석 |
+| `analyze_template.py` | 레퍼런스 HWPX 구조 분석 |
 | `office/unpack.py` | HWPX를 디렉토리로 풀기 |
 | `office/pack.py` | 디렉토리를 HWPX로 묶기 |
 | `validate.py` | HWPX 구조 검증 |
 | `page_guard.py` | 원본 대비 페이지 수 변동 감지 |
-| `text_extract.py` | 텍스트 추출 |
+| `text_extract.py` | 텍스트 추출 (일반/마크다운) |
+| `cite_numeric.py` | 저자-연도 인용을 숫자 형식으로 변환 |
+| `create_document.py` | HWPX 문서 생성 유틸리티 |
 
 ## 자세한 사용법
 
 스타일 ID 체계, XML 구조 규칙, 템플릿별 charPr/paraPr 매핑 같은 건 [SKILL.md](./SKILL.md)에 다 정리되어 있습니다.
+
+## 원본 출처
+
+이 프로젝트는 [Canine89/hwpxskill](https://github.com/Canine89/hwpxskill)을 기반으로 합니다.
