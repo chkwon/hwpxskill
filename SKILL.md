@@ -569,6 +569,22 @@ python3 "$SKILL_DIR/scripts/cite_numeric.py" input.hwpx --output output.hwpx \
 - **재실행 가능**: 이미 numeric 스타일인 문서에 새 author-year 인용을 추가한 후 재실행하면 전체 재번호
 - **`&amp;` 처리**: XML의 `&amp;` 및 `&amp;amp;` 이중 인코딩 자동 처리
 - **미인용 참고문헌**: 본문에서 인용되지 않은 참고문헌은 경고 후 제거
+- **저널명 이탤릭**: 참고문헌의 저널(학술지) 제목은 이탤릭체로 표기해야 한다. HWPX에서는 저널명 부분을 별도의 `<hp:run>`으로 분리하고, 이탤릭 속성이 적용된 `charPrIDRef`를 지정해야 한다. 예시:
+  ```xml
+  <!-- 일반 텍스트 run -->
+  <hp:run charPrIDRef="N">
+    <hp:t>[1] Kim, J., Park, S. (2024). Title of paper. </hp:t>
+  </hp:run>
+  <!-- 저널명 이탤릭 run -->
+  <hp:run charPrIDRef="M">
+    <hp:t>Journal of Operations Research</hp:t>
+  </hp:run>
+  <!-- 나머지 일반 텍스트 run -->
+  <hp:run charPrIDRef="N">
+    <hp:t>, 45(2), 123-145.</hp:t>
+  </hp:run>
+  ```
+  여기서 `charPrIDRef="M"`은 `header.xml`의 `<hh:charPr>` 중 `italic="true"`가 설정된 ID를 참조한다. 원본 문서에 이탤릭 charPr이 없으면 `header.xml`에 새로 추가해야 한다.
 
 ---
 
@@ -690,3 +706,4 @@ cp original.hwpx "original_backup_$(date +%Y%m%d_%H%M%S).hwpx"
     cp original.hwpx "original_backup_$(date +%Y%m%d_%H%M%S).hwpx"
     ```
 22. **글꼴 크기·자간 조작 금지**: 쪽수를 맞추거나 줄 수를 줄이기 위해 글꼴 크기(height), 자간(spacing), 장평(ratio) 등을 임의로 변경하지 말 것. 텍스트가 길어지면 내용을 압축·요약하는 방식으로 대응하고, charPr의 height/spacing 속성이나 paraPr의 lineSpacing 값을 원본과 다르게 변경하는 것은 금지한다. 원본 레퍼런스 문서에 정의된 서식을 그대로 유지할 것.
+23. **항상 원본 HWPX 파일 기준 작업**: 백업을 만들거나 HWPX 파일을 편집할 때, 반드시 원본 `.hwpx` 파일 자체를 기준으로 작업할 것. `/tmp`나 캐시 디렉토리에 이전에 풀어둔(unzip) XML 파일을 재사용하지 말 것. 사용자가 한글 오피스에서 직접 HWPX 파일을 수정했을 수 있으므로, 이전에 추출한 XML은 이미 최신 상태가 아닐 수 있다. 매번 작업 시 원본 HWPX에서 새로 읽어야 한다.
