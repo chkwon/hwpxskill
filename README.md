@@ -9,7 +9,7 @@ python-hwpx API를 쓰면 버그가 많아서, OWPML 표준 XML을 직접 건드
 - **레퍼런스 복원**: 원본 HWPX 파일의 스타일, 표 구조, 셀 병합, 여백을 분석해서 구조를 보존한 채 내용만 교체
 - **템플릿 기반 생성**: 공문, 보고서, 회의록, 제안서 등 내장 템플릿으로 새 문서 생성
 - **페이지 가드**: 원본 대비 페이지 수 변동을 자동 감지
-- **인용 변환**: 저자-연도 형식의 학술 인용을 숫자 형식 [1-3]으로 자동 변환
+- **인용 변환**: 저자-연도 형식의 학술 인용을 숫자 형식 [1-3]으로 자동 변환, 저널명 자동 이탤릭 처리, `&` 인코딩 자동 정리
 - **텍스트 추출**: 일반 텍스트 또는 마크다운 형식으로 문서 내용 추출
 - **XML 직접 제어**: charPr, paraPr 단위의 정밀한 서식 제어
 - **크로스 플랫폼**: Claude Code, Cursor, Codex CLI에서 모두 동작
@@ -130,6 +130,8 @@ python3 scripts/page_guard.py --reference reference.hwpx --output result.hwpx
 ```bash
 python3 scripts/cite_numeric.py input.hwpx --output output.hwpx --ref-heading "5. References"
 ```
+
+저널(학술지) 제목은 자동으로 이탤릭 처리되고, 저자 사이의 `&` 인코딩(`&amp;amp;` 이중 인코딩)도 자동으로 정리됩니다.
 
 ## 템플릿
 
