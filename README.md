@@ -14,6 +14,12 @@ python-hwpx API를 쓰면 버그가 많아서, OWPML 표준 XML을 직접 건드
 - **XML 직접 제어**: charPr, paraPr 단위의 정밀한 서식 제어
 - **크로스 플랫폼**: Claude Code, Cursor, Codex CLI에서 모두 동작
 
+## 지켜야 할 원칙
+
+- **분량은 텍스트로 맞춥니다, 자간으로 우겨넣지 않습니다**: 페이지 한도에 맞추기 위해 자간(`<hh:spacing>`), 글꼴 크기(`charPr` 의 `height`), 장평(`<hh:ratio>`), 줄 간격(`<hh:lineSpacing>`), 여백(`<hh:margin>`) 같은 시각 속성을 임의로 줄이는 것은 **절대 금지**입니다. 분량이 넘치면 본문을 압축·요약하거나, 사용자에게 한도 완화·페이지 추가 허용을 명시적으로 확인받습니다.
+- **레퍼런스 서식 보존**: 원본 HWPX의 `header.xml` 에 정의된 charPr/paraPr 속성은 사용자가 명시적으로 변경을 요청한 경우 외에는 그대로 유지합니다.
+- 자세한 규칙은 [SKILL.md](./SKILL.md)의 상단 callout 박스와 Critical Rules 섹션 참고.
+
 ## 설치
 
 Agent Skills 표준을 따르고 있어서, 스킬 디렉토리에 넣기만 하면 됩니다.
